@@ -39,7 +39,7 @@ export function pickObject(
     y,
     radius,
     layerFilter,
-    maxCount,
+    depth,
     mode,
     onViewportActive,
     pickingFBO,
@@ -72,7 +72,7 @@ export function pickObject(
       pickingFBO,
       deviceRect,
       layerFilter,
-      maxCount,
+      depth,
       redrawReason: mode
     });
 
@@ -186,12 +186,10 @@ function drawAndSamplePickingBuffer(
     pickingFBO,
     deviceRect,
     layerFilter,
-    maxCount,
+    depth = 1,
     redrawReason
   }
 ) {
-  console.log('drawAndSamplePickingBuffer', 'maxCount=', maxCount, layers);
-  // console.trace();
   assert(deviceRect);
   assert(Number.isFinite(deviceRect.width) && deviceRect.width > 0, '`width` must be > 0');
   assert(Number.isFinite(deviceRect.height) && deviceRect.height > 0, '`height` must be > 0');
@@ -201,12 +199,13 @@ function drawAndSamplePickingBuffer(
     return null;
   }
 
+  // reset
   layers.forEach(l => l.updateInstancePickingColors([]));
 
   let allFound = false;
   const exclude = {};
   let result = null;
-  while(!allFound && maxCount > 0) {
+  while (!allFound && depth > 0) {
     drawPickingBuffer(gl, {
       layers,
       viewports,
@@ -227,7 +226,7 @@ function drawAndSamplePickingBuffer(
     result = pickedColors;
 
     allFound = pickedColors.every(pc => pc === 0);
-    maxCount--;
+    depth--;
 
     if (!allFound) {
       // exclude found one
@@ -237,7 +236,7 @@ function drawAndSamplePickingBuffer(
       } else {
         exclude[layerId] = [pickedColors];
       }
-      // console.log(exclude);
+      console.log(exclude);
       layers[layerId].updateInstancePickingColors(exclude[layerId]);
     }
   }
