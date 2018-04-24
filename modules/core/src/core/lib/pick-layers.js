@@ -39,7 +39,7 @@ export function pickObject(
     y,
     radius,
     layerFilter,
-    depth,
+    depth = 1,
     mode,
     onViewportActive,
     pickingFBO,
@@ -62,44 +62,69 @@ export function pickObject(
     deviceHeight: pickingFBO.height
   });
 
-  const pickedColors =
-    deviceRect &&
-    drawAndSamplePickingBuffer(gl, {
+  // reset buffers
+  layers.forEach(l => l.updateInstancePickingColors([]));
+
+  const result = [];
+  const exclude = {};
+
+  for (let i = 0; i < depth; i++) {
+    const pickedColors =
+      deviceRect &&
+      drawAndSamplePickingBuffer(gl, {
+        layers,
+        viewports,
+        onViewportActive,
+        useDevicePixels,
+        pickingFBO,
+        deviceRect,
+        layerFilter,
+        redrawReason: mode
+      });
+
+    const pickInfo =
+      (pickedColors &&
+        getClosestFromPickingBuffer(gl, {
+          pickedColors,
+          layers,
+          deviceX,
+          deviceY,
+          deviceRadius,
+          deviceRect
+        })) ||
+      NO_PICKED_OBJECT;
+
+    if (!pickInfo.pickedColor) {
+      break;
+    }
+
+    const layerId = pickInfo.pickedColor[3] - 1;
+    if (exclude[layerId]) {
+      exclude[layerId].push(pickInfo.pickedColor);
+    } else {
+      exclude[layerId] = [pickInfo.pickedColor];
+    }
+    layers[layerId].updateInstancePickingColors(exclude[layerId]);
+
+    const pPickInfos = processPickInfo({
+      pickInfo,
+      lastPickedInfo,
+      mode,
       layers,
       viewports,
-      onViewportActive,
-      useDevicePixels,
-      pickingFBO,
-      deviceRect,
-      layerFilter,
-      depth,
-      redrawReason: mode
+      x,
+      y,
+      deviceX,
+      deviceY,
+      pixelRatio
     });
 
-  const pickInfo =
-    (pickedColors &&
-      getClosestFromPickingBuffer(gl, {
-        pickedColors,
-        layers,
-        deviceX,
-        deviceY,
-        deviceRadius,
-        deviceRect
-      })) ||
-    NO_PICKED_OBJECT;
+    if (pPickInfos) {
+      pPickInfos.forEach(info => result.push(info));
+    }
+  }
 
-  return processPickInfo({
-    pickInfo,
-    lastPickedInfo,
-    mode,
-    layers,
-    viewports,
-    x,
-    y,
-    deviceX,
-    deviceY,
-    pixelRatio
-  });
+  return result;
 }
 
 // Pick all objects within the given bounding box
@@ -186,7 +211,6 @@ function drawAndSamplePickingBuffer(
     pickingFBO,
     deviceRect,
     layerFilter,
-    depth = 1,
     redrawReason
   }
 ) {
@@ -199,49 +223,23 @@ function drawAndSamplePickingBuffer(
     return null;
   }
 
-  // reset
-  layers.forEach(l => l.updateInstancePickingColors([]));
+  drawPickingBuffer(gl, {
+    layers,
+    viewports,
+    onViewportActive,
+    useDevicePixels,
+    pickingFBO,
+    deviceRect,
+    layerFilter,
+    redrawReason
+  });
 
-  let allFound = false;
-  const exclude = {};
-  let result = null;
-  while (!allFound && depth > 0) {
-    drawPickingBuffer(gl, {
-      layers,
-      viewports,
-      onViewportActive,
-      useDevicePixels,
-      pickingFBO,
-      deviceRect,
-      layerFilter,
-      redrawReason
-    });
-
-    // Read from an already rendered picking buffer
-    // Returns an Uint8ClampedArray of picked pixels
-    const {x, y, width, height} = deviceRect;
-    const pickedColors = new Uint8Array(width * height * 4);
-    pickingFBO.readPixels({x, y, width, height, pixelArray: pickedColors});
-    console.log(pickedColors);
-    result = pickedColors;
-
-    allFound = pickedColors.every(pc => pc === 0);
-    depth--;
-
-    if (!allFound) {
-      // exclude found one
-      const layerId = pickedColors[3] - 1;
-      if (exclude[layerId]) {
-        exclude[layerId].push(pickedColors);
-      } else {
-        exclude[layerId] = [pickedColors];
-      }
-      console.log(exclude);
-      layers[layerId].updateInstancePickingColors(exclude[layerId]);
-    }
-  }
-
-  return result;
+  // Read from an already rendered picking buffer
+  // Returns an Uint8ClampedArray of picked pixels
+  const {x, y, width, height} = deviceRect;
+  const pickedColors = new Uint8Array(width * height * 4);
+  pickingFBO.readPixels({x, y, width, height, pixelArray: pickedColors});
+  return pickedColors;
 }
 
 // Indentifies which viewport, if any corresponds to x and y
