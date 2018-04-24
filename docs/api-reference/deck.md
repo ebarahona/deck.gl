@@ -222,11 +222,17 @@ Returns:
 
 * an array of unique [`info`](/docs/get-started/interactivity.md#the-picking-info-object) objects
 
+<<<<<<< HEAD
 Notes:
 
 * The query methods are designed to quickly find objects by utilizing the picking buffer.
 * The query methods offer more flexibility for developers to handle events compared to the built-in hover and click callbacks.
 * Note there is a limitation in the query methods: occluded objects are not returned. To improve the results, you may try setting the `layerIds` parameter to limit the query to fewer layers.
+=======
+Remarks:
+
+* This query methods are designed to quickly find objects by utilizing the picking buffer. They offer more flexibility for developers to handle events in addition to the built-in hover and click callbacks.
+>>>>>>> c92bb53b... Remove mention of limitation regarding occluded objects
 
 
 ## Remarks
