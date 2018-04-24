@@ -352,8 +352,6 @@ export default class Layer {
   }
 
   calculateInstancePickingColors(attribute, {numInstances}) {
-    console.log('calculateInstancePickingColors', numInstances);
-    console.trace();
     const {value, size} = attribute;
     // add 1 to index to seperate from no selection
     for (let i = 0; i < numInstances; i++) {
@@ -364,27 +362,26 @@ export default class Layer {
     }
   }
 
-  updateInstancePickingColors(excludeIds) {
-    // console.log('updateInstancePickingColors, excludeIds=', excludeIds);
-    const excl = excludeIds.map(x => this.decodePickingColor(x));
-    console.log(excl);
+  // this method overwrittes the current buffer and is used for multi-picking
+  updateInstancePickingColors(excludeColors) {
+    const excludeIds = excludeColors.map(this.decodePickingColor);
 
-    const attributeManager = this.getAttributeManager();
-    const attr = attributeManager.attributes.instancePickingColors;
-    const {state: attribute, allocedInstances: numInstances} = attr;
-    // console.log(attr);
+    const {instancePickingColors} = this.getAttributeManager().attributes;
+    const {state: attribute, allocedInstances: numInstances} = instancePickingColors;
 
     const {value, size} = attribute;
     // add 1 to index to seperate from no selection
     for (let i = 0; i < numInstances; i++) {
-      const pickingColor = excl.includes(i) ? this.nullPickingColor() : this.encodePickingColor(i);
+      const pickingColor = excludeIds.includes(i)
+        ? this.nullPickingColor()
+        : this.encodePickingColor(i);
       value[i * size + 0] = pickingColor[0];
       value[i * size + 1] = pickingColor[1];
       value[i * size + 2] = pickingColor[2];
     }
 
-    const model = this.getSingleModel();
-    model.setAttributes({instancePickingColors: attribute});
+    // TODO: Optimize this to use sub-buffer update!
+    this.getSingleModel().setAttributes({instancePickingColors: attribute});
   }
 
   // Deduces numer of instances. Intention is to support:
